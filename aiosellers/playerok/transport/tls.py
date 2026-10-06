@@ -77,5 +77,26 @@ class PlayerokTransport:
         self._raise_if_cloudflare(response)
         return response
 
+    async def download(self, url: str) -> bytes:
+        """Download a file by URL. Retries three times, same as PlayerokAPI."""
+        last_error: Exception | str | None = None
+        for _ in range(3):
+            try:
+                response = await self._client.get(
+                    url, headers={"user-agent": self._config.user_agent}
+                )
+            except Exception as exc:
+                last_error = exc
+                continue
+            status = getattr(response, "status_code", None)
+            if status == 200:
+                content = getattr(response, "content", None)
+                if content is None:
+                    text = getattr(response, "text", "")
+                    return text.encode()
+                return content
+            last_error = f"HTTP {status}"
+        raise RuntimeError(f"Failed to download {url}: {last_error}")
+
     async def close(self) -> None:
         await self._client.aclose()

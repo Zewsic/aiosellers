@@ -5,6 +5,7 @@ from .deal import Deal
 from .file import File
 from .game import Game, GameCategory, GameCategoryObtainingType
 from .item import Item, MyItem
+from .transaction import Transaction
 from .user import User
 
 __all__ = [
@@ -17,5 +18,6 @@ __all__ = [
     "GameCategoryObtainingType",
     "Item",
     "MyItem",
+    "Transaction",
     "User",
 ]

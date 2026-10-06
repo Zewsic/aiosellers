@@ -196,6 +196,23 @@ async with Playerok() as client:
     print(f"Bought {cheapest.name} for {cheapest.price}")
 ```
 
+Runnable samples live in [`examples/`](examples/): a decorator bot in `examples/playerok_bot.py` and a transaction list in `examples/transactions.py`.
+
+```python
+import asyncio
+
+from aiosellers.playerok import Playerok
+from aiosellers.playerok.events import NewMessageEvent
+
+client = Playerok()
+
+@client.on_message(text="!команды")
+async def commands(event: NewMessageEvent) -> None:
+    await event.client.chats.send_message(event.chat.id, text="!привет")
+
+asyncio.run(client.start_polling())
+```
+
 ---
 
 ## Development Status: PlayerOK
@@ -207,8 +224,8 @@ async with Playerok() as client:
 | **Items**              |    ✅    |     ✅      |
 | **Deals**              |    ✅    |     ✅      |
 | **Chats**              |    ✅    |     ✅      |
-| **Transactions**       |    ✅    |     🚧     |
-| **Event Feed**         |   🚧    |     🚧     |
+| **Transactions**       |    ✅    |     ✅      |
+| **Event Feed**         |    ✅    |     ✅      |
 
 ---
 

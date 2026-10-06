@@ -68,6 +68,21 @@ class RawDealsService:
             return None
         return ItemDeal(**data)
 
+    async def report_problem(
+        self, deal_id: str, description: str, problem_type_id: str
+    ) -> ItemDeal | None:
+        response = await self._transport.request(
+            "post",
+            "graphql",
+            GQL.report_deal_problem(deal_id, description, problem_type_id),
+        )
+        raw = response.json()
+        _raise_on_gql_errors(raw)
+        data = _dig(raw, ("data", "reportDealProblem"))
+        if data is None:
+            return None
+        return ItemDeal(**data)
+
     async def create_deal(
         self,
         item_id: str,

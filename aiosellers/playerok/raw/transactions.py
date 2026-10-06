@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 from ..core.exceptions import UnsupportedPaymentProvider
 from ..core.utils import _dig, _raise_on_gql_errors
 from ..graphql import GraphQLQuery as GQL
@@ -45,6 +47,8 @@ class RawTransactionService:
         provider_id: list[TransactionProviderIds] | None = None,
         status: list[TransactionStatuses] | None = None,
         after_cursor: str | None = None,
+        from_date: datetime | None = None,
+        to_date: datetime | None = None,
     ) -> TransactionList:
         response = await self._transport.request(
             "post",
@@ -58,6 +62,8 @@ class RawTransactionService:
                 provider_id=provider_id,
                 status=status,
                 after_cursor=after_cursor,
+                from_date=from_date,
+                to_date=to_date,
             ),
         )
         raw = response.json()

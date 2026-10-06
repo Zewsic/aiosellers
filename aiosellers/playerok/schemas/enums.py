@@ -2,12 +2,12 @@ from enum import StrEnum
 
 
 class QueryID(StrEnum):
-    user = "2e2e3b656d2ba48e0b2cd5eeedf88ef70e4aabb4ac4d9d9e9b8feff343a37d98"
-    deals = "c3b623b5fe0758cf91b2335ebf36ff65f8650a6672a792a3ca7a36d270d396fb"
-    deal = "5652037a966d8da6d41180b0be8226051fe0ed1357d460c6ae348c3138a0fba3"
+    user = "48cadfa521497f9445eaa9abda29a4251149636d9393f536165889a61e332384"
+    deals = "591b0e6d036c2120c8f95b97dbfdf5635df3747cd901f4895e009935229417ef"
+    deal = "d0421fb8dea49652876d69b1a14ce2c715ea9c7127c48c85a78e06de31a845ae"
     games = "5de9b3240c148579c82e2310a30b4aad5462884fd1abf93dd3c43d1f5ef14d85"
     game = "4775f8630a3e234c50537e68649043ac32a40b0370b0f1fb2dc314500ef6202d"
-    game_category = "d81943c23bc558591f70286ad69bb6bf7f6229d04aae39fb0a9701d78a9fd749"
+    game_category = "7759f743651176ddad6afefb5f2e889ec9984cae08a015281879cd61e94bdb60"
     game_category_agreements = "3ea4b047196ed9f84aa5eb652299c4bd73f2e99e9fdf4587877658d9ea6330f6"
     game_category_obtaining_types = (
         "15b0991414821528251930b4c8161c299eb39882fd635dd5adb1a81fb0570aea"
@@ -15,14 +15,16 @@ class QueryID(StrEnum):
     game_category_instructions = "5991cead6a8ca46195bc4f7ae3164e7606105dbb82834c910658edeb0a1d1918"
     game_category_data_fields = "6fdadfb9b05880ce2d307a1412bc4f2e383683061c281e2b65a93f7266ea4a49"
     game_category_options = "ee8fdbe4e6fe6a924d5c19d5eed47bd9856f4dd16ee2e0e76841d0794a1f1b9b"
-    chats = "999f86b7c94a4cb525ed5549d8f24d0d24036214f02a213e8fd7cefc742bbd58"
+    chats = "c1ddbcd7c8b87160ac25e0734f9dc32fc945287b056f4b14abf1473bfb1ad11a"
     chat = "bb024dc0652fc7c1302a64a117d56d99fb0d726eb4b896ca803dca55f611d933"
-    chat_messages = "e8162a8500865f4bb18dbaacb1c4703823f74c1925a91a5103f41c2021f0557a"
+    chat_messages = "9b4e264ff1b20e0fd3929afe023dee8f50affc02b85f80cb4b3dc1516ecfbaa0"
     items = "206ae9d63e58bc41df9023aae39b9136f358282a808c32ee95f5b8b6669a8c8b"
-    item = "5b2be2b532cea7023f4f584512c4677469858e2210349f7eec78e3b96d563716"
+    item = "1cdb4b335f6c119db77883451f41cef83fc449f79f021627f27b76ec49203487"
+    testimonials = "773d40b7efec82a4b86021ba8bcaa462f68eb236e255926f2168c5cd4685e881"
+    message_templates = "f3d4b4053f7c758d4cd84429bbf974a27b0afed6a473ab47fbe8d13ac6bf87a2"
     item_priority_statuses = "b922220c6f979537e1b99de6af8f5c13727daeff66727f679f07f986ce1c025a"
     transaction_providers = "31960e5dd929834c1f85bc685db80657ff576373076f016b2578c0a34e6e9f42"
-    transactions = "3b9925106c3fe9308ac632254fd70da347b5701f243ab8690477d5a7ca37c2c8"
+    transactions = "63672f5d6b617b27fe213cd5dec566e4ee90df9ea79080b74c5e6b6e9d448568"
     sbp_bank_members = "ef7902598e855fa15fb5e3112156ac226180f0b009a36606fc80a18f00b80c63"
     verified_cards = "eb338d8432981307a2b3d322b3310b2447cab3a6acf21aba4b8773b97e72d1aa"
 
@@ -37,6 +39,8 @@ class UserType(StrEnum):
     USER = "USER"
     MODERATOR = "MODERATOR"
     BOT = "BOT"
+    CHECKER = "CHECKER"
+    ADMIN = "ADMIN"
 
 
 class GameCategoryDataFieldTypes(StrEnum):
@@ -113,6 +117,7 @@ class TransactionProviderIds(StrEnum):
     BANK_CARD = "BANK_CARD"
     YMONEY = "YMONEY"
     USDT = "USDT"
+    CRYPTO = "CRYPTO"
     PENDING_INCOME = "PENDING_INCOME"
 
 
@@ -127,6 +132,7 @@ class ItemDealStatuses(StrEnum):
     PENDING = "PENDING"
     SENT = "SENT"
     CONFIRMED = "CONFIRMED"
+    CONFIRMED_AUTOMATICALLY = "CONFIRMED_AUTOMATICALLY"
     ROLLED_BACK = "ROLLED_BACK"
 
 
@@ -212,7 +218,18 @@ class GameCategoryDataFieldInputTypes(StrEnum):
 
 class GameCategoryAutoConfirmPeriods(StrEnum):
     # TODO: Add all confirm periods
+    TWO_DAYS = "TWO_DAYS"
     SEVEN_DAYS = "SEVEN_DAYS"
+
+
+class MessageTemplateTypes(StrEnum):
+    ACTIVE_DEAL_PROBLEM = "ACTIVE_DEAL_PROBLEM"
+    FINISHED_DEAL_PROBLEM = "FINISHED_DEAL_PROBLEM"
+
+
+class ChatMessageEvents(StrEnum):
+    CHAT_STARTED = "CHAT_STARTED"
+    CHAT_FINISHED = "CHAT_FINISHED"
 
 
 class GameCategoryInstructionTypes(StrEnum):

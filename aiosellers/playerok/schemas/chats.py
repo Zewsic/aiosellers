@@ -12,6 +12,7 @@ from . import (
     ChatTypes,
     Game,
     Item,
+    MessageTemplateTypes,
     PageInfo,
 )
 from .account import UserProfile
@@ -111,6 +112,42 @@ class ChatList(ApiModel):
             edges = data.get("edges") or []
             data["chats"] = [(edge or {}).get("node") for edge in edges if (edge or {}).get("node")]
         return data
+
+
+class MessageTemplate(ApiModel):
+    id: str = Field(..., alias="id")
+    type: MessageTemplateTypes = Field(..., alias="type")
+    title: str = Field(..., alias="title")
+    text: str = Field(..., alias="text")
+    sequence: int = Field(..., alias="sequence")
+    created_at: datetime = Field(..., alias="createdAt")
+    group: typing.Any | None = Field(None, alias="group")
+
+
+class MessageTemplateList(ApiModel):
+    templates: list[MessageTemplate] = Field(..., alias="templates")
+    page_info: PageInfo = Field(..., alias="pageInfo")
+    total_count: int = Field(..., alias="totalCount")
+
+    @model_validator(mode="before")
+    @classmethod
+    def _inflate_from_edges(cls, data):
+        if not isinstance(data, dict):
+            return data
+        if "templates" not in data:
+            edges = data.get("edges") or []
+            data["templates"] = [
+                (edge or {}).get("node") for edge in edges if (edge or {}).get("node")
+            ]
+        return data
+
+
+class TemporaryAttachment(ApiModel):
+    id: str = Field(..., alias="id")
+    url: str = Field(..., alias="url")
+    chat_id: str = Field(..., alias="chatId")
+    client_attachment_id: str = Field(..., alias="clientAttachmentId")
+    expires_at: datetime = Field(..., alias="expiresAt")
 
 
 # Resolve forward references after all models are defined

@@ -59,3 +59,8 @@ class Deal:
 
     async def refresh(self) -> Deal:
         return await self._require_client().deals.get(self.id, force_refresh=True)
+
+    async def report_problem(self, description: str, problem_type_id: str) -> Deal:
+        return await self._require_client().deals.report_problem(
+            self.id, description, problem_type_id
+        )

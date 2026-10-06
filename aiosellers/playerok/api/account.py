@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from ..entities.user import User
-from ..schemas import Account, AccountProfile
+from ..schemas import Account, AccountProfile, Review, ReviewStatuses, SortDirections
 
 if TYPE_CHECKING:
     from ..playerok import Playerok
@@ -60,3 +60,47 @@ class AccountAPI:
             self._client._identity_maps.users.set(user.id, user)
 
         return user
+
+    async def reviews(
+        self,
+        *,
+        limit: int = 24,
+        cursor: str | None = None,
+        status: ReviewStatuses | None = ReviewStatuses.APPROVED,
+        comment_required: bool = False,
+        rating: int | None = None,
+        game_id: str | None = None,
+        category_id: str | None = None,
+        min_item_price: int | None = None,
+        max_item_price: int | None = None,
+        sort_direction: SortDirections = SortDirections.DESC,
+        sort_field: str = "createdAt",
+    ) -> list[Review]:
+        result: list[Review] = []
+        remain = limit
+        current_cursor = cursor
+        while remain > 0:
+            response = await self._client._raw.account.get_reviews(
+                self._client._me_id,
+                count=min(24, remain),
+                after_cursor=current_cursor,
+                status=status,
+                comment_required=comment_required,
+                rating=rating,
+                game_id=game_id,
+                category_id=category_id,
+                min_item_price=min_item_price,
+                max_item_price=max_item_price,
+                sort_direction=sort_direction,
+                sort_field=sort_field,
+            )
+            if response is None or not response.reviews:
+                break
+            result.extend(response.reviews)
+            if len(result) >= limit:
+                break
+            remain -= len(response.reviews)
+            if not response.page_info.has_next_page:
+                break
+            current_cursor = response.page_info.end_cursor
+        return result[:limit]

@@ -1,9 +1,21 @@
 from __future__ import annotations
 
+import uuid
+
 from ..core.types import ImageInput
 from ..core.utils import _dig, _raise_on_gql_errors, prepare_image_file
 from ..graphql import GraphQLQuery as GQL
-from ..schemas import Chat, ChatList, ChatMessage, ChatMessageList, ChatStatuses, ChatTypes
+from ..schemas import (
+    Chat,
+    ChatList,
+    ChatMessage,
+    ChatMessageList,
+    ChatStatuses,
+    ChatTypes,
+    MessageTemplateList,
+    MessageTemplateTypes,
+    TemporaryAttachment,
+)
 from ..transport import PlayerokTransport
 
 
@@ -106,3 +118,39 @@ class RawChatService:
         if data is None:
             return None
         return ChatMessage(**data)
+
+    async def get_message_templates(
+        self,
+        template_type: MessageTemplateTypes = MessageTemplateTypes.ACTIVE_DEAL_PROBLEM,
+        *,
+        count: int = 24,
+        after_cursor: str | None = None,
+    ) -> MessageTemplateList | None:
+        response = await self._transport.request(
+            "post",
+            "graphql",
+            GQL.get_message_templates(template_type, count=count, after_cursor=after_cursor),
+        )
+        raw = response.json()
+        _raise_on_gql_errors(raw)
+        data = _dig(raw, ("data", "messageTemplates"))
+        if data is None:
+            return None
+        return MessageTemplateList(**data)
+
+    async def upload_image(self, chat_id: str, image: ImageInput) -> TemporaryAttachment | None:
+        payload = GQL.upload_chat_image(chat_id, str(uuid.uuid4()))
+        file_obj, should_close = await prepare_image_file(image)
+        try:
+            response = await self._transport.request(
+                "post", "graphql", payload, files={"1": file_obj}
+            )
+        finally:
+            if should_close:
+                file_obj.close()
+        raw = response.json()
+        _raise_on_gql_errors(raw)
+        data = _dig(raw, ("data", "uploadChatImageIntoTemporaryStore"))
+        if data is None:
+            return None
+        return TemporaryAttachment(**data)

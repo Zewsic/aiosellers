@@ -6,7 +6,14 @@ from ..core.types import ImageInput
 from ..entities.chat import Chat, ChatMessage
 from ..entities.file import File
 from ..entities.user import User
-from ..schemas import ChatMessageDirection, ChatStatuses, ChatTypes
+from ..schemas import (
+    ChatMessageDirection,
+    ChatStatuses,
+    ChatTypes,
+    MessageTemplate,
+    MessageTemplateTypes,
+    TemporaryAttachment,
+)
 
 if TYPE_CHECKING:
     from ..playerok import Playerok
@@ -248,3 +255,31 @@ class ChatAPI:
 
     async def mark_as_read(self, chat_id: str) -> None:
         await self._client._raw.chats.mark_chat_as_read(chat_id)
+
+    async def message_templates(
+        self,
+        template_type: MessageTemplateTypes = MessageTemplateTypes.ACTIVE_DEAL_PROBLEM,
+        *,
+        limit: int = 24,
+        cursor: str | None = None,
+    ) -> list[MessageTemplate]:
+        result: list[MessageTemplate] = []
+        remain = limit
+        current_cursor = cursor
+        while remain > 0:
+            response = await self._client._raw.chats.get_message_templates(
+                template_type, count=min(24, remain), after_cursor=current_cursor
+            )
+            if response is None or not response.templates:
+                break
+            result.extend(response.templates)
+            if len(result) >= limit:
+                break
+            remain -= len(response.templates)
+            if not response.page_info.has_next_page:
+                break
+            current_cursor = response.page_info.end_cursor
+        return result[:limit]
+
+    async def upload_image(self, chat_id: str, image: ImageInput) -> TemporaryAttachment | None:
+        return await self._client._raw.chats.upload_image(chat_id, image)

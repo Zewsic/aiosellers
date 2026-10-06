@@ -3,7 +3,14 @@ from __future__ import annotations
 from ..core.exceptions import Unauthorized
 from ..core.utils import _dig, _raise_on_gql_errors
 from ..graphql import GraphQLQuery as GQL
-from ..schemas import Account, AccountProfile, UserProfile
+from ..schemas import (
+    Account,
+    AccountProfile,
+    ReviewList,
+    ReviewStatuses,
+    SortDirections,
+    UserProfile,
+)
 from ..transport import PlayerokTransport
 
 
@@ -54,3 +61,44 @@ class RawAccountService:
         else:
             return None
         return UserProfile(**profile)
+
+    async def get_reviews(
+        self,
+        user_id: str,
+        *,
+        count: int = 24,
+        after_cursor: str | None = None,
+        status: ReviewStatuses | None = ReviewStatuses.APPROVED,
+        comment_required: bool = False,
+        rating: int | None = None,
+        game_id: str | None = None,
+        category_id: str | None = None,
+        min_item_price: int | None = None,
+        max_item_price: int | None = None,
+        sort_direction: SortDirections = SortDirections.DESC,
+        sort_field: str = "createdAt",
+    ) -> ReviewList | None:
+        response = await self._transport.request(
+            "post",
+            "graphql",
+            GQL.get_testimonials(
+                user_id,
+                count=count,
+                after_cursor=after_cursor,
+                status=status,
+                comment_required=comment_required,
+                rating=rating,
+                game_id=game_id,
+                category_id=category_id,
+                min_item_price=min_item_price,
+                max_item_price=max_item_price,
+                sort_direction=sort_direction,
+                sort_field=sort_field,
+            ),
+        )
+        raw = response.json()
+        _raise_on_gql_errors(raw)
+        data = _dig(raw, ("data", "testimonials"))
+        if data is None:
+            return None
+        return ReviewList(**data)

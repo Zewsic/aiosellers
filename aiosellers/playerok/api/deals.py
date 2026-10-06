@@ -146,6 +146,17 @@ class DealAPI:
             return await self.get(deal_id, force_refresh=True)
         return self._create_deal(updated)
 
+    async def report_problem(self, deal_id: str, description: str, problem_type_id: str) -> Deal:
+        updated = await self._client._raw.deals.report_problem(
+            deal_id, description, problem_type_id
+        )
+        if updated is None:
+            refreshed = await self.get(deal_id, force_refresh=True)
+            if refreshed is None:
+                raise RuntimeError(f"Deal {deal_id} was not found after reporting a problem")
+            return refreshed
+        return self._create_deal(updated)
+
     async def cancel(self, deal_id: str) -> Deal:
         """Reject PAID work and refund money (for seller)"""
         updated = await self._client._raw.deals.update_deal(deal_id, ItemDealStatuses.ROLLED_BACK)
