@@ -87,6 +87,7 @@ class RawChats(RawBase):
             request["data"]["content"] = f"{BOT_MARK}{text}"
 
         async def run():
+            before = await self._node_message_id(chat_id)
             payload = await self.transport.request(
                 "POST",
                 "runner/",
@@ -96,9 +97,58 @@ class RawChats(RawBase):
                 },
                 headers={"content-type": "application/x-www-form-urlencoded; charset=UTF-8"},
             )
-            return self._sent_message(response_json(payload), chat_id)
+            data = response_json(payload)
+            try:
+                return self._sent_message(data, chat_id)
+            except MessageNotDeliveredError:
+                resp = data.get("response") if isinstance(data, dict) else None
+                if not isinstance(resp, dict) or resp.get("error"):
+                    raise
+                found = await self._message_after(chat_id, before)
+                if found is None:
+                    raise
+                return found
 
         return await self._call(run)
+
+    async def _node_message_id(self, chat_id: int | str) -> int | None:
+        account_id = self.transport.account_id
+        if not account_id:
+            return None
+        from ..core.utils import random_tag
+        from ..parsers.chats import parse_bookmarks
+        from .account import RawAccount
+
+        payload = await RawAccount(self.transport).runner_poll(
+            [{"type": "chat_bookmarks", "id": account_id, "tag": random_tag(), "data": False}]
+        )
+        html = ""
+        for obj in payload.get("objects") or []:
+            if obj.get("type") != "chat_bookmarks":
+                continue
+            data = obj.get("data")
+            html = data.get("html") if isinstance(data, dict) else (data or "")
+            break
+        if not isinstance(html, str):
+            return None
+        wanted = int(chat_id)
+        for shortcut in parse_bookmarks(html, self_id=account_id):
+            if shortcut.id == wanted:
+                return shortcut.node_message_id
+        return None
+
+    async def _message_after(self, chat_id: int | str, before: int | None):
+        if before is None:
+            return None
+        node = await self._node_message_id(chat_id)
+        if node is None or node <= before:
+            return None
+        history = await self.history(chat_id, node + 1, retry=False)
+        self_id = self.transport.account_id or 0
+        own = [item for item in history if item.id > before and item.author_id == self_id]
+        if not own:
+            return None
+        return max(own, key=lambda item: item.id)
 
     def _sent_message(self, payload: dict, chat_id: int | str):
         resp = payload.get("response") if isinstance(payload, dict) else None
