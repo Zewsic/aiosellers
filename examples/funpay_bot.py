@@ -1,3 +1,8 @@
+"""FunPay bot: greet a buyer and answer a chat phrase.
+
+uv run python examples/funpay_bot.py
+"""
+
 import asyncio
 
 from aiosellers.funpay import FunPay

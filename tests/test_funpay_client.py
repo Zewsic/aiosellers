@@ -3,7 +3,7 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from aiosellers.funpay import FunPay
+from aiosellers.funpay import FunPay, FunPayClientConfig
 from aiosellers.funpay.entities.lot import LotFields
 from aiosellers.funpay.raw import RawAPI
 from aiosellers.funpay.raw.chats import RawChats
@@ -125,3 +125,19 @@ class FunPayClientTests(unittest.IsolatedAsyncioTestCase):
             async with FunPay("key") as client:
                 self.assertEqual(client.account_id, 5)
             self.assertIsNone(client.account_id)
+
+    async def test_absorb_keeps_the_runner_seal(self) -> None:
+        class _Response:
+            status_code = 200
+            text = ""
+            headers: dict = {"set-cookie": "golden_seal=from-header; path=/"}
+            cookies = {"PHPSESSID": "php-value", "golden_seal": "seal-value"}
+
+        transport = FunPayTransport(FunPayClientConfig(golden_key="key"))
+        try:
+            transport._absorb(_Response())
+            stored = {cookie.name: cookie.value for cookie in transport._client.cookies.cookiejar}
+        finally:
+            await transport.close()
+        self.assertEqual(stored["golden_seal"], "seal-value")
+        self.assertEqual(stored["PHPSESSID"], "php-value")

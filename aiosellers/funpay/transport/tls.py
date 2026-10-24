@@ -185,6 +185,7 @@ class FunPayTransport:
         headers: dict[str, str] | None = None,
         locale: str | None = None,
         raise_not_200: bool = True,
+        cookie_retry: bool = False,
     ) -> Any:
         verb = method.upper()
         url = self._url(path, locale)
@@ -213,6 +214,18 @@ class FunPayTransport:
         else:
             response = await self._client.post(url, headers=request_headers, **post)
         self._absorb(response)
+        if not cookie_retry and _stale_cookie(response):
+            return await self._exchange(
+                method,
+                path,
+                data=data,
+                json_body=json_body,
+                files=files,
+                headers=headers,
+                locale=locale,
+                raise_not_200=raise_not_200,
+                cookie_retry=True,
+            )
         self._raise_for_status(response, raise_not_200=raise_not_200)
         return response
 
@@ -232,22 +245,45 @@ class FunPayTransport:
                         self.csrf_token = app["csrf-token"]
                     if app.get("locale"):
                         self.locale = app["locale"]
-        php = _phpsessid(response)
-        if not php:
-            return
-        jar = self._client.cookies
-        if hasattr(jar, "set"):
+        saved: set[str] = set()
+        cookies = getattr(response, "cookies", None)
+        if cookies is not None:
             try:
-                jar.set("PHPSESSID", php)
-                return
+                names = list(cookies)
             except Exception:
-                try:
-                    jar.set("PHPSESSID", php, domain="funpay.com")
-                    return
-                except Exception:
-                    return
-        if hasattr(jar, "update"):
-            jar.update({"PHPSESSID": php})
+                names = []
+            for name in names:
+                value = _cookie_get(cookies, str(name))
+                if not value:
+                    continue
+                self._remember_cookie(str(name), value)
+                saved.add(str(name))
+        for name in ("PHPSESSID", "golden_seal"):
+            if name in saved:
+                continue
+            value = _header_cookie(response, name)
+            if value:
+                self._remember_cookie(name, value)
+
+    def _remember_cookie(self, name: str, value: str) -> None:
+        jar = self._client.cookies
+        if not hasattr(jar, "set"):
+            if hasattr(jar, "update"):
+                jar.update({name: value})
+            return
+        delete = getattr(jar, "delete", None)
+        if callable(delete):
+            try:
+                delete(name)
+            except Exception:
+                pass
+        try:
+            jar.set(name, value, domain="funpay.com", path="/")
+        except Exception:
+            try:
+                jar.set(name, value)
+            except Exception:
+                return
 
     def _raise_for_status(self, response: Any, *, raise_not_200: bool) -> None:
         code = getattr(response, "status_code", None)
@@ -289,16 +325,25 @@ def _is_login(response: Any) -> bool:
     return any(value and _ends_login(value) for value in found)
 
 
-def _phpsessid(response: Any) -> str | None:
-    cookies = getattr(response, "cookies", None)
-    if cookies is not None and hasattr(cookies, "get"):
-        try:
-            value = cookies.get("PHPSESSID")
-        except Exception:
-            value = None
-        if value:
-            return str(value)
-    headers = getattr(response, "headers", None)
-    blob = _header_text(headers, "set-cookie")
-    match = re.search(r"PHPSESSID=([^;,\s]+)", blob)
+def _stale_cookie(response: Any) -> bool:
+    if getattr(response, "status_code", None) != 400:
+        return False
+    return "Необходимая cookie отсутствует или устарела" in response_text(response)
+
+
+def _cookie_get(cookies: Any, name: str) -> str | None:
+    if not hasattr(cookies, "get"):
+        return None
+    try:
+        value = cookies.get(name)
+    except Exception:
+        return None
+    if not value:
+        return None
+    return str(value)
+
+
+def _header_cookie(response: Any, name: str) -> str | None:
+    blob = _header_text(getattr(response, "headers", None), "set-cookie")
+    match = re.search(rf"{re.escape(name)}=([^;,\s]+)", blob)
     return match.group(1) if match else None
