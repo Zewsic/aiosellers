@@ -90,6 +90,37 @@ def parse_chat_message(data: dict[str, Any]) -> ChatMessageSchema:
         chat = deal.get("chat")
         if isinstance(chat, dict) and chat.get("id"):
             slim_deal["chat"] = {"id": chat["id"]}
+        item = deal.get("item")
+        if isinstance(item, dict) and item.get("id"):
+            kept_item: dict[str, Any] = {
+                "id": item.get("id"),
+                "name": item.get("name"),
+                "slug": item.get("slug"),
+                "price": item.get("price"),
+                "rawPrice": item.get("rawPrice"),
+                "sellerType": item.get("sellerType"),
+            }
+            item_user = item.get("user")
+            if isinstance(item_user, dict) and item_user.get("id") and item_user.get("username"):
+                kept_item["user"] = {
+                    "id": item_user["id"],
+                    "username": item_user["username"],
+                    "role": item_user.get("role") or "USER",
+                }
+            category = item.get("category")
+            if isinstance(category, dict) and category.get("id"):
+                kept_item["category"] = {"id": category["id"]}
+            slim_deal["item"] = kept_item
+        review = deal.get("testimonial")
+        if isinstance(review, dict) and review.get("id"):
+            slim_deal["testimonial"] = {
+                "id": review.get("id"),
+                "status": review.get("status"),
+                "text": review.get("text"),
+                "rating": review.get("rating"),
+                "createdAt": review.get("createdAt"),
+                "updatedAt": review.get("updatedAt"),
+            }
         slim["deal"] = slim_deal
     return ChatMessageSchema.model_validate(slim)
 
@@ -137,6 +168,7 @@ class EventListener:
         self.review_deal_ids: list[str] = []
         self.review_checks: dict[str, dict[str, float | int]] = {}
         self.known_chat_ids: set[str] = set()
+        self._chats: dict[str, ChatSchema] = {}
         self.chat_subscriptions: dict[str, str] = {}
         self._possible_new_chat = asyncio.Event()
         self._stop = asyncio.Event()
@@ -152,6 +184,29 @@ class EventListener:
             age = (moment - _as_utc(message.created_at)).total_seconds()
             if age > self.history_grace_seconds:
                 self._mark_message(message.id)
+
+    def remember_chat(self, schema: ChatSchema) -> ChatSchema:
+        previous = self._chats.get(schema.id)
+        if (
+            previous is not None
+            and getattr(previous, "users", None)
+            and not getattr(schema, "users", None)
+        ):
+            schema = schema.model_copy(update={"users": previous.users})
+        self._chats[schema.id] = schema
+        return schema
+
+    async def _named_schema(self, schema: ChatSchema) -> ChatSchema:
+        schema = self.remember_chat(schema)
+        if getattr(schema, "users", None):
+            return schema
+        fetched = await self.client._raw.chats.get_chat(schema.id)
+        if fetched is None or not getattr(fetched, "users", None):
+            return schema
+        return self.remember_chat(fetched)
+
+    def chat_from(self, schema: ChatSchema):
+        return self.client.chats._create_chat(self.remember_chat(schema))
 
     def subscription_frames(self) -> list[dict[str, Any]]:
         user_id = self.client.me_id
@@ -191,9 +246,9 @@ class EventListener:
                 logger.debug("chatMessageCreated for an unknown subscription")
             else:
                 message = parse_chat_message(created)
-                chat = self.client.chats._create_chat(
-                    ChatSchema.model_validate({"id": chat_id, "type": "PM"})
-                )
+                known = self._chats.get(chat_id)
+                schema = known or ChatSchema.model_validate({"id": chat_id, "type": "PM"})
+                chat = self.chat_from(await self._named_schema(schema))
                 events.extend(await self.events_for_message(chat, message))
         return events
 
@@ -213,6 +268,7 @@ class EventListener:
         now = datetime.now(timezone.utc)
         events: list[PlayerokEvent] = []
         for chat_schema in page.chats:
+            chat_schema = self.remember_chat(chat_schema)
             message = chat_schema.last_message
             if message is None:
                 continue
@@ -317,6 +373,7 @@ class EventListener:
             chats = list(page.chats) if page is not None else []
             self.remember_history(chats)
             for chat_schema in chats:
+                chat_schema = self.remember_chat(chat_schema)
                 self.known_chat_ids.add(chat_schema.id)
                 chat = self.client.chats._create_chat(chat_schema)
                 await queue.put(ChatInitializedEvent(client=self.client, chat=chat))
@@ -423,11 +480,11 @@ class EventListener:
                 raise
 
     async def _on_chat_updated(self, data: dict[str, Any]) -> list[PlayerokEvent]:
-        chat_schema = parse_chat(data)
+        chat_schema = await self._named_schema(parse_chat(data))
         events: list[PlayerokEvent] = []
         if chat_schema.id not in self.chat_subscriptions.values():
             await self._send(self._chat_message_frame(chat_schema.id))
-            chat = self.client.chats._create_chat(chat_schema)
+            chat = self.chat_from(chat_schema)
             self.known_chat_ids.add(chat_schema.id)
             events.append(ChatInitializedEvent(client=self.client, chat=chat))
             if chat_schema.last_message is not None:
@@ -446,7 +503,7 @@ class EventListener:
             age = (now - _as_utc(message.created_at)).total_seconds()
             if age > self.history_grace_seconds:
                 continue
-            chat = self.client.chats._create_chat(chat_schema)
+            chat = self.chat_from(chat_schema)
             self.known_chat_ids.add(chat_schema.id)
             return await self.events_for_message(chat, message)
         return []

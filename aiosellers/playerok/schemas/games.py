@@ -190,6 +190,16 @@ class GameCategory(ApiModel):
     fee_multiplier: float | None = Field(None, alias="feeMultiplier")
 
 
+class GameProfile(ApiModel):
+    """Профиль игры в сообщении. Это не карточка каталога: категорий и даты там нет."""
+
+    id: str = Field(..., alias="id")
+    slug: str | None = Field(None, alias="slug")
+    name: str | None = Field(None, alias="name")
+    type: GameType | None = Field(None, alias="type")
+    logo: File | None = Field(None, alias="logo")
+
+
 class Game(ApiModel):
     id: str = Field(..., alias="id")
     slug: str = Field(..., alias="slug")

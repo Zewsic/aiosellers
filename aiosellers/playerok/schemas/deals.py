@@ -64,11 +64,11 @@ class ItemDealList(ApiModel):
 
 class Review(ApiModel):
     id: str = Field(..., alias="id")
-    status: ReviewStatuses = Field(..., alias="status")
+    status: ReviewStatuses | None = Field(None, alias="status")
     text: str | None = Field(None, alias="text")
-    rating: int = Field(..., alias="rating")
-    created_at: datetime = Field(..., alias="createdAt")
-    updated_at: datetime = Field(..., alias="updatedAt")
+    rating: int | None = Field(None, alias="rating")
+    created_at: datetime | None = Field(None, alias="createdAt")
+    updated_at: datetime | None = Field(None, alias="updatedAt")
     deal: ItemDeal | None = Field(None, alias="deal")
     creator: UserProfile | None = Field(None, alias="creator")
     moderator: Moderator | None = Field(None, alias="moderator")

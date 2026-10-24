@@ -3,9 +3,10 @@ from typing import Any
 
 from pydantic import Field, model_validator
 
-from . import ApiModel, ItemStatuses, PageInfo, PriorityTypes, UserType
+from . import ApiModel, ItemLogEvents, ItemStatuses, PageInfo, PriorityTypes, UserType
 from .account import UserProfile
 from .basic import File
+from .games import GameCategoryDataField
 
 
 class ItemPriorityStatusPriceRange(ApiModel):
@@ -24,7 +25,7 @@ class ItemPriorityStatus(ApiModel):
 
 class ItemLog(ApiModel):
     id: str = Field(..., alias="id")
-    event: str = Field(..., alias="event")  # Using str since ItemLogEvents might be missing some
+    event: ItemLogEvents = Field(..., alias="event")
     created_at: datetime = Field(..., alias="createdAt")
     user: UserProfile | None = Field(None, alias="user")
 
@@ -46,6 +47,7 @@ class Item(ApiModel):
     user: UserProfile | None = Field(None, alias="user")
 
     attributes: dict[str, Any] | None = Field(None, alias="attributes")
+    data_fields: list[GameCategoryDataField] | None = Field(None, alias="dataFields")
     comment: str | None = Field(None, alias="comment")
 
     approval_date: datetime | None = Field(None, alias="approvalDate")

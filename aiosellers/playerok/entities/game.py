@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, AsyncIterator
 
 from ..schemas import (
     GameCategoryAgreementIconTypes,
@@ -10,11 +10,13 @@ from ..schemas import (
     GameCategoryDataFieldTypes,
     GameCategoryOptionTypes,
     GameType,
+    ItemsSortOptions,
 )
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..playerok import Playerok
     from .file import File
+    from .item import Item
 
 
 @dataclass(slots=True)
@@ -161,6 +163,63 @@ class GameCategory:
     async def get_options(self) -> list[GameCategoryOption]:
         return await self._require_client().games.get_category_options(self.id)
 
+    async def get_items(
+        self,
+        *,
+        limit: int = 24,
+        cursor: str | None = None,
+        user_id: str | None = None,
+        minimal_price: int | None = None,
+        maximal_price: int | None = None,
+        has_discount: bool | None = None,
+        has_reviews: bool | None = None,
+        attributes: list[dict[str, str]] | None = None,
+        search: str | None = None,
+        sort: ItemsSortOptions | None = None,
+    ) -> list["Item"]:
+        return await self._require_client().items.list(
+            limit=limit,
+            cursor=cursor,
+            game_id=self.game_id,
+            category_id=self.id,
+            user_id=user_id,
+            minimal_price=minimal_price,
+            maximal_price=maximal_price,
+            has_discount=has_discount,
+            has_reviews=has_reviews,
+            attributes=attributes,
+            search=search,
+            sort=sort,
+        )
+
+    async def iter_items(
+        self,
+        *,
+        cursor: str | None = None,
+        user_id: str | None = None,
+        minimal_price: int | None = None,
+        maximal_price: int | None = None,
+        has_discount: bool | None = None,
+        has_reviews: bool | None = None,
+        attributes: list[dict[str, str]] | None = None,
+        search: str | None = None,
+        sort: ItemsSortOptions | None = None,
+    ) -> AsyncIterator["Item"]:
+        async for item in self._require_client().items.iter(
+            cursor=cursor,
+            game_id=self.game_id,
+            category_id=self.id,
+            user_id=user_id,
+            minimal_price=minimal_price,
+            maximal_price=maximal_price,
+            has_discount=has_discount,
+            has_reviews=has_reviews,
+            attributes=attributes,
+            search=search,
+            sort=sort,
+        ):
+            yield item
+
 
 @dataclass(slots=True)
 class Game:
@@ -183,3 +242,76 @@ class Game:
 
     async def refresh(self) -> "Game":
         return await self._require_client().games.get(id=self.id, force_refresh=True)
+
+    async def get_category(
+        self, *, id: str | None = None, slug: str | None = None
+    ) -> GameCategory | None:
+        if id:
+            for category in self.categories:
+                if category.id == id:
+                    return category
+        elif slug:
+            for category in self.categories:
+                if category.slug == slug:
+                    return category
+
+        return await self._require_client().games.get_category(id=id, slug=slug, game_id=self.id)
+
+    async def get_items(
+        self,
+        *,
+        limit: int = 24,
+        cursor: str | None = None,
+        category_id: str | None = None,
+        user_id: str | None = None,
+        minimal_price: int | None = None,
+        maximal_price: int | None = None,
+        has_discount: bool | None = None,
+        has_reviews: bool | None = None,
+        attributes: list[dict[str, str]] | None = None,
+        search: str | None = None,
+        sort: ItemsSortOptions | None = None,
+    ) -> list["Item"]:
+        return await self._require_client().items.list(
+            limit=limit,
+            cursor=cursor,
+            game_id=self.id,
+            category_id=category_id,
+            user_id=user_id,
+            minimal_price=minimal_price,
+            maximal_price=maximal_price,
+            has_discount=has_discount,
+            has_reviews=has_reviews,
+            attributes=attributes,
+            search=search,
+            sort=sort,
+        )
+
+    async def iter_items(
+        self,
+        *,
+        cursor: str | None = None,
+        category_id: str | None = None,
+        user_id: str | None = None,
+        minimal_price: int | None = None,
+        maximal_price: int | None = None,
+        has_discount: bool | None = None,
+        has_reviews: bool | None = None,
+        attributes: list[dict[str, str]] | None = None,
+        search: str | None = None,
+        sort: ItemsSortOptions | None = None,
+    ) -> AsyncIterator["Item"]:
+        async for item in self._require_client().items.iter(
+            cursor=cursor,
+            game_id=self.id,
+            category_id=category_id,
+            user_id=user_id,
+            minimal_price=minimal_price,
+            maximal_price=maximal_price,
+            has_discount=has_discount,
+            has_reviews=has_reviews,
+            attributes=attributes,
+            search=search,
+            sort=sort,
+        ):
+            yield item

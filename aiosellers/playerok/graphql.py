@@ -30,6 +30,24 @@ def _utc_stamp(value: datetime) -> str:
     return value.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
 
 
+def _items_sort(sort: ItemsSortOptions | None) -> dict[str, str] | None:
+    if sort is None or sort == ItemsSortOptions.DEFAULT:
+        return None
+    name = sort.value
+    if name.endswith("_ASC"):
+        direction = "ASC"
+        stem = name[: -len("_ASC")]
+    elif name.endswith("_DESC"):
+        direction = "DESC"
+        stem = name[: -len("_DESC")]
+    else:
+        raise ValueError(f"unknown item sort {name}")
+    field = {"PRICE": "price", "RATING": "userRating", "CREATED": "createdAt"}.get(stem)
+    if field is None:
+        raise ValueError(f"unknown item sort {name}")
+    return {"field": field, "direction": direction}
+
+
 def _persisted(
     operation_name: str,
     variables: dict[str, Any],
@@ -240,9 +258,8 @@ class GraphQLQuery:
                 "status": ["APPROVED"],
                 "withOfficial": False,
             }
-        sort_field = None
 
-        if minimal_price or maximal_price:
+        if minimal_price is not None or maximal_price is not None:
             filters["price"] = {"min": minimal_price, "max": maximal_price}
         if has_discount:
             filters["hasDiscount"] = has_discount
@@ -252,24 +269,13 @@ class GraphQLQuery:
             filters["attributes"] = attributes
         if search:
             filters["searchQuery"] = search
-        if sort:
-            if "PRICE" in sort:
-                field = "price"
-            else:
-                field = "userRating"
-            if "ASC" in sort:
-                direction = "ASC"
-            else:
-                direction = "DESC"
-
-            sort_field = {"field": field, "direction": direction}
 
         return _persisted(
             operation_name="items",
             variables={
                 "pagination": {"first": count, "after": cursor},
                 "filter": filters,
-                "sort": sort_field,
+                "sort": _items_sort(sort),
             },
             sha256_hash=QueryID.items.value,
         )

@@ -46,6 +46,7 @@ from .enums import (
 )
 from .games import (
     Game,
+    GameProfile,
     GameCategory,
     GameCategoryAgreement,
     GameCategoryAgreementList,
@@ -144,6 +145,7 @@ __all__ = [
     "GameCategoryAutoConfirmPeriods",
     "GameCategoryInstructionTypes",
     "Game",
+    "GameProfile",
     "GameCategory",
     "GameCategoryAgreement",
     "GameCategoryAgreementList",

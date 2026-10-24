@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, AsyncIterator
 from ..core.types import ImageInput
 from ..entities.game import GameCategoryDataField, GameCategoryOption
 from ..entities.item import Item, MyItem
+from ..schemas import ItemsSortOptions
 from ..schemas.items import Item as ItemSchema
 from ..schemas.items import MyItem as MyItemSchema
 
@@ -147,6 +148,7 @@ class ItemAPI:
         has_reviews: bool | None = None,
         attributes: list[dict[str, str]] | None = None,
         search: str | None = None,
+        sort: ItemsSortOptions | None = None,
     ) -> list[Item]:
         result = []
         remain = limit
@@ -165,6 +167,7 @@ class ItemAPI:
                 has_reviews=has_reviews,
                 attributes=attributes,
                 search=search,
+                sort=sort,
             )
             if response is None or not response.items:
                 break
@@ -193,6 +196,7 @@ class ItemAPI:
         has_reviews: bool | None = None,
         attributes: list[dict[str, str]] | None = None,
         search: str | None = None,
+        sort: ItemsSortOptions | None = None,
     ) -> AsyncIterator[Item]:
         current_cursor = cursor
 
@@ -208,6 +212,7 @@ class ItemAPI:
                 has_reviews=has_reviews,
                 attributes=attributes,
                 search=search,
+                sort=sort,
             )
             if response is None or not response.items:
                 return

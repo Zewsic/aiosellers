@@ -3,7 +3,7 @@
 [![Python](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/release/python-3120/)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 
-Asynchronous Python wrapper for working with digital trading platforms. Currently implemented module for **PlayerOK**.
+Asynchronous Python wrapper for working with digital trading platforms. Implemented modules: **PlayerOK** and **FunPay**.
 
 ![Python](logo.png)
 
@@ -32,6 +32,7 @@ Token can be passed to the constructor or via environment variable:
 
 ```bash
 export PLAYEROK_ACCESS_TOKEN="your_token_here"
+export FUNPAY_GOLDEN_KEY="your_golden_key"
 ```
 
 ---
@@ -196,7 +197,7 @@ async with Playerok() as client:
     print(f"Bought {cheapest.name} for {cheapest.price}")
 ```
 
-Runnable samples live in [`examples/`](examples/): a decorator bot in `examples/playerok_bot.py` and a transaction list in `examples/transactions.py`.
+Runnable samples live in [`examples/`](examples/): a PlayerOK bot in `examples/playerok_bot.py`, a FunPay bot in `examples/funpay_bot.py`, and a transaction list in `examples/transactions.py`.
 
 ```python
 import asyncio
@@ -226,6 +227,20 @@ asyncio.run(client.start_polling())
 | **Chats**              |    ✅    |     ✅      |
 | **Transactions**       |    ✅    |     ✅      |
 | **Event Feed**         |    ✅    |     ✅      |
+
+## Development Status: FunPay
+
+FunPay has no public API. `aiosellers.funpay` speaks the site's HTML and runner endpoints: profile, lots, sales and purchases, chat, balance, and a polling listener.
+
+| Module | Raw API | High-level |
+|:-------|:-------:|:----------:|
+| **Account** | ✅ | ✅ |
+| **Categories** | ✅ | ✅ |
+| **Lots** | ✅ | ✅ |
+| **Orders** | ✅ | ✅ |
+| **Chats** | ✅ | ✅ |
+| **Finance** | ✅ | ✅ |
+| **Event listener** | ✅ | ✅ |
 
 ---
 

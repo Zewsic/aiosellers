@@ -10,7 +10,7 @@ from . import (
     ChatMessageButtonTypes,
     ChatStatuses,
     ChatTypes,
-    Game,
+    GameProfile,
     Item,
     MessageTemplateTypes,
     PageInfo,
@@ -50,7 +50,7 @@ class ChatMessage(ApiModel):
     is_suspicious: bool | None = Field(None, alias="isSuspicious")
     is_bulk_messaging: bool | None = Field(None, alias="isBulkMessaging")
     file: File | None = Field(None, alias="file")
-    game: Game | None = Field(None, alias="game")
+    game: GameProfile | None = Field(None, alias="game")
     user: UserProfile | None = Field(None, alias="user")
     deal: ItemDeal | None = Field(None, alias="deal")
     item: Item | None = Field(None, alias="item")

@@ -1,4 +1,53 @@
+import threading
 from enum import StrEnum
+
+_ENUM_LOCK = threading.Lock()
+
+
+class OpenStrEnum(StrEnum):
+    """Площадка добавляет значения без предупреждения. Неизвестное становится членом, объект не падает."""
+
+    @classmethod
+    def _missing_(cls, value: object):
+        if not isinstance(value, str) or not value:
+            return None
+        with _ENUM_LOCK:
+            existing = cls._member_map_.get(value)
+            if existing is not None:
+                return existing
+            member = str.__new__(cls, value)
+            member._name_ = value
+            member._value_ = value
+            cls._member_map_[value] = member
+            cls._value2member_map_[value] = member
+            cls._member_names_.append(value)
+            if value.isidentifier() and value not in cls.__dict__:
+                type.__setattr__(cls, value, member)
+            return member
+
+    @classmethod
+    def _coerce(cls, value: object):
+        if isinstance(value, cls):
+            return value
+        if isinstance(value, str) and value:
+            return cls(value)
+        raise ValueError(f"{cls.__name__}: {value!r}")
+
+    @classmethod
+    def __get_pydantic_core_schema__(cls, source_type: object, handler: object):
+        from pydantic_core import core_schema
+
+        return core_schema.no_info_plain_validator_function(
+            cls._coerce,
+            serialization=core_schema.plain_serializer_function_ser_schema(
+                lambda member: member.value,
+                when_used="json",
+            ),
+        )
+
+    @classmethod
+    def __get_pydantic_json_schema__(cls, core_schema: object, handler: object):
+        return {"type": "string"}
 
 
 class QueryID(StrEnum):
@@ -29,26 +78,29 @@ class QueryID(StrEnum):
     verified_cards = "eb338d8432981307a2b3d322b3310b2447cab3a6acf21aba4b8773b97e72d1aa"
 
 
-class GameType(StrEnum):
+class GameType(OpenStrEnum):
     MOBILE_GAME = "MOBILE_GAME"
     GAME = "GAME"
     APPLICATION = "APPLICATION"
 
 
-class UserType(StrEnum):
+class UserType(OpenStrEnum):
     USER = "USER"
     MODERATOR = "MODERATOR"
     BOT = "BOT"
     CHECKER = "CHECKER"
     ADMIN = "ADMIN"
+    SUPPORT = "SUPPORT"
+    SECURITY = "SECURITY"
+    GAMES_AND_APPS = "GAMES_AND_APPS"
 
 
-class GameCategoryDataFieldTypes(StrEnum):
+class GameCategoryDataFieldTypes(OpenStrEnum):
     ITEM_DATA = "ITEM_DATA"
     OBTAINING_DATA = "OBTAINING_DATA"
 
 
-class EventTypes(StrEnum):
+class EventTypes(OpenStrEnum):
     CHAT_INITIALIZED = "CHAT_INITIALIZED"
     NEW_MESSAGE = "NEW_MESSAGE"
     NEW_DEAL = "NEW_DEAL"
@@ -63,7 +115,7 @@ class EventTypes(StrEnum):
     ITEM_SENT = "ITEM_SENT"
 
 
-class ItemLogEvents(StrEnum):
+class ItemLogEvents(OpenStrEnum):
     PAID = "PAID"
     SENT = "SENT"
     DEAL_CONFIRMED = "DEAL_CONFIRMED"
@@ -72,7 +124,7 @@ class ItemLogEvents(StrEnum):
     PROBLEM_RESOLVED = "PROBLEM_RESOLVED"
 
 
-class TransactionOperations(StrEnum):
+class TransactionOperations(OpenStrEnum):
     DEPOSIT = "DEPOSIT"
     BUY = "BUY"
     SELL = "SELL"
@@ -85,12 +137,12 @@ class TransactionOperations(StrEnum):
     STEAM_DEPOSIT = "STEAM_DEPOSIT"
 
 
-class TransactionDirections(StrEnum):
+class TransactionDirections(OpenStrEnum):
     IN = "IN"
     OUT = "OUT"
 
 
-class TransactionStatuses(StrEnum):
+class TransactionStatuses(OpenStrEnum):
     PENDING = "PENDING"
     PROCESSING = "PROCESSING"
     CONFIRMED = "CONFIRMED"
@@ -98,18 +150,18 @@ class TransactionStatuses(StrEnum):
     FAILED = "FAILED"
 
 
-class TransactionPaymentMethodIds(StrEnum):
+class TransactionPaymentMethodIds(OpenStrEnum):
     MIR = "MIR"
     VISA_MASTERCARD = "VISA_MASTERCARD"
     ERIP = "ERIP"
 
 
-class TransactionProviderDirections(StrEnum):
+class TransactionProviderDirections(OpenStrEnum):
     IN = "IN"
     OUT = "OUT"
 
 
-class TransactionProviderIds(StrEnum):
+class TransactionProviderIds(OpenStrEnum):
     LOCAL = "LOCAL"
     SBP = "SBP"
     BANK_CARD_RU = "BANK_CARD_RU"
@@ -121,13 +173,13 @@ class TransactionProviderIds(StrEnum):
     PENDING_INCOME = "PENDING_INCOME"
 
 
-class BankCardTypes(StrEnum):
+class BankCardTypes(OpenStrEnum):
     MIR = "MIR"
     VISA = "VISA"
     MASTERCARD = "MASTERCARD"
 
 
-class ItemDealStatuses(StrEnum):
+class ItemDealStatuses(OpenStrEnum):
     PAID = "PAID"
     PENDING = "PENDING"
     SENT = "SENT"
@@ -136,36 +188,36 @@ class ItemDealStatuses(StrEnum):
     ROLLED_BACK = "ROLLED_BACK"
 
 
-class ItemDealDirections(StrEnum):
+class ItemDealDirections(OpenStrEnum):
     IN = "IN"
     OUT = "OUT"
 
 
-class ChatMessageDirection(StrEnum):
+class ChatMessageDirection(OpenStrEnum):
     IN = "IN"
     OUT = "OUT"
     SYSTEM = "SYSTEM"
 
 
-class ChatTypes(StrEnum):
+class ChatTypes(OpenStrEnum):
     PM = "PM"
     NOTIFICATIONS = "NOTIFICATIONS"
     SUPPORT = "SUPPORT"
 
 
-class ChatStatuses(StrEnum):
+class ChatStatuses(OpenStrEnum):
     NEW = "NEW"
     FINISHED = "FINISHED"
+    ACTIVE = "ACTIVE"
 
 
-class ChatMessageButtonTypes(StrEnum):
-    # TODO: Add another types of buttons
+class ChatMessageButtonTypes(OpenStrEnum):
     REDIRECT = "REDIRECT"
     LOTTERY = "LOTTERY"
     ASK_FOR_EXTERNAL_REVIEW = "ASK_FOR_EXTERNAL_REVIEW"
 
 
-class ItemStatuses(StrEnum):
+class ItemStatuses(OpenStrEnum):
     PENDING_APPROVAL = "PENDING_APPROVAL"
     PENDING_MODERATION = "PENDING_MODERATION"
     APPROVED = "APPROVED"
@@ -176,62 +228,62 @@ class ItemStatuses(StrEnum):
     DRAFT = "DRAFT"
 
 
-class ReviewStatuses(StrEnum):
+class ReviewStatuses(OpenStrEnum):
     APPROVED = "APPROVED"
     DELETED = "DELETED"
 
 
-class SortDirections(StrEnum):
+class SortDirections(OpenStrEnum):
     DESC = "DESC"
     ASC = "ASC"
 
 
-class ItemsSortOptions(StrEnum):
+class ItemsSortOptions(OpenStrEnum):
     PRICE_ASC = "PRICE_ASC"
     PRICE_DESC = "PRICE_DESC"
     RATING_ASC = "RATING_ASC"
     RATING_DESC = "RATING_DESC"
+    CREATED_ASC = "CREATED_ASC"
+    CREATED_DESC = "CREATED_DESC"
     DEFAULT = "DEFAULT"
 
 
-class PriorityTypes(StrEnum):
+class PriorityTypes(OpenStrEnum):
     DEFAULT = "DEFAULT"
     PREMIUM = "PREMIUM"
 
 
-class GameCategoryAgreementIconTypes(StrEnum):
-    # TODO: Add another types of icons
+class GameCategoryAgreementIconTypes(OpenStrEnum):
     RESTRICTION = "RESTRICTION"
     CONFIRMATION = "CONFIRMATION"
 
 
-class GameCategoryOptionTypes(StrEnum):
+class GameCategoryOptionTypes(OpenStrEnum):
     SELECTOR = "SELECTOR"
     SWITCH = "SWITCH"
     RANGE = "RANGE"
 
 
-class GameCategoryDataFieldInputTypes(StrEnum):
+class GameCategoryDataFieldInputTypes(OpenStrEnum):
     INPUT = "INPUT"
     TEXTAREA = "TEXTAREA"
 
 
-class GameCategoryAutoConfirmPeriods(StrEnum):
-    # TODO: Add all confirm periods
+class GameCategoryAutoConfirmPeriods(OpenStrEnum):
     TWO_DAYS = "TWO_DAYS"
     SEVEN_DAYS = "SEVEN_DAYS"
 
 
-class MessageTemplateTypes(StrEnum):
+class MessageTemplateTypes(OpenStrEnum):
     ACTIVE_DEAL_PROBLEM = "ACTIVE_DEAL_PROBLEM"
     FINISHED_DEAL_PROBLEM = "FINISHED_DEAL_PROBLEM"
 
 
-class ChatMessageEvents(StrEnum):
+class ChatMessageEvents(OpenStrEnum):
     CHAT_STARTED = "CHAT_STARTED"
     CHAT_FINISHED = "CHAT_FINISHED"
 
 
-class GameCategoryInstructionTypes(StrEnum):
+class GameCategoryInstructionTypes(OpenStrEnum):
     FOR_SELLER = "FOR_SELLER"
     FOR_BUYER = "FOR_BUYER"
