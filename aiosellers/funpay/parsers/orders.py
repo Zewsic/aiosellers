@@ -118,18 +118,19 @@ def parse_order_api(data: dict) -> OrderSnapshot:
         if int(amount_float) == amount_float:
             amount = int(amount_float)
     section = data.get("section") or {}
+    node = type_data.get("node") or {}
     buyer_id = buyer.get("user_id")
     seller_id = seller.get("user_id")
     return OrderSnapshot(
         id=order_id,
         status=_map_status(str(data.get("status") or "")),
         side=OrderSide.SALE,
-        description="",
+        description=_offer_title(type_data.get("fields")),
         price=float(data.get("amount") or 0),
         currency=parse_currency(str(data.get("currency") or "")),
         buyer_username=str(buyer.get("name") or ""),
         buyer_id=int(buyer_id or 0),
-        subcategory_name=section.get("name") or section.get("title"),
+        subcategory_name=node.get("name") or section.get("name") or section.get("title"),
         html="",
         chat_id=_chat_id(chat.get("node_name")),
         amount=amount,
@@ -137,3 +138,15 @@ def parse_order_api(data: dict) -> OrderSnapshot:
         seller_username=seller.get("name"),
         seller_id=int(seller_id) if seller_id is not None else None,
     )
+
+
+def _offer_title(fields) -> str:
+    if not isinstance(fields, dict):
+        return ""
+    for item in fields.values():
+        if not isinstance(item, dict):
+            continue
+        value = item.get("value")
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return ""

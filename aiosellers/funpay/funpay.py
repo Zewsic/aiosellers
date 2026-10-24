@@ -15,7 +15,7 @@ from .entities.lot import Lot, MyLot
 from .entities.order import Order
 from .entities.user import User
 from .events import FunPayEvent
-from .listener import EventListener
+from .listener import EventListener, message_events
 from .raw import RawAPI
 from .schemas import EventTypes
 from .transport import FunPayTransport
@@ -174,6 +174,59 @@ class FunPay:
                 await self._dispatch(event)
         finally:
             await self.close()
+
+    async def replay_messages(
+        self,
+        *,
+        chat_id: int | None = None,
+        limit: int | None = None,
+        reviews: bool = True,
+    ):
+        """Yield saved chat messages as events, oldest id first.
+
+        Loads one history page per chat, the same page as ``chats.messages.list``.
+        ``limit`` keeps the newest messages of that merged timeline.
+        A review notice yields ``NewMessageEvent`` and then the review event,
+        same as live polling.
+        """
+        if self._transport is None:
+            raise RuntimeError("Client is not started. Call start() or start_polling() first.")
+        if chat_id is None:
+            chats = await self.chats.list()
+        else:
+            chats = [await self.chats.get(chat_id)]
+        collected: list[tuple[Chat, Any]] = []
+        for chat in chats:
+            try:
+                messages = await self.chats.messages.list(chat.id, limit=0)
+            except Exception:
+                logger.exception("FunPay backtest history failed for chat %s", chat.id)
+                continue
+            collected.extend((chat, message) for message in messages)
+        collected.sort(key=lambda item: item[1].id)
+        if limit is not None:
+            collected = collected[-limit:]
+        for chat, message in collected:
+            for event in message_events(self, chat, message, reviews=reviews):
+                yield event
+
+    async def backtest_messages(
+        self,
+        *,
+        chat_id: int | None = None,
+        limit: int | None = None,
+        reviews: bool = True,
+    ) -> None:
+        """Dispatch replayed chat history through the registered handlers."""
+        own_session = self._transport is None
+        if own_session:
+            await self.start()
+        try:
+            async for event in self.replay_messages(chat_id=chat_id, limit=limit, reviews=reviews):
+                await self._dispatch(event)
+        finally:
+            if own_session:
+                await self.close()
 
     def on(
         self,

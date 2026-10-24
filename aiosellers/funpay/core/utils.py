@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import re
 import secrets
-import string
 
 from ..schemas.enums import Currency, MessageTypes
 from .constants import BOT_MARK, IMAGE_PLACEHOLDERS, OLD_BOT_MARK
@@ -10,7 +9,7 @@ from .constants import BOT_MARK, IMAGE_PLACEHOLDERS, OLD_BOT_MARK
 _INVISIBLE = frozenset("\u200b\u200c\u200d\u2060\ufeff")
 
 _USER = r"[A-Za-z0-9]+"
-_ORDER = r"#[A-Z0-9]{8}"
+_ORDER = r"#[A-Z0-9]{8}\s*"
 _ORDER_ID = re.compile(r"#([A-Z0-9]{8})")
 
 _PURCHASED_1 = re.compile(
@@ -120,7 +119,8 @@ def order_id_from(text: str | None) -> str | None:
 def classify_message(text: str | None) -> MessageTypes:
     if not text:
         return MessageTypes.NON_SYSTEM
-    if text in IMAGE_PLACEHOLDERS:
+    text = " ".join(text.split())
+    if not text or text in IMAGE_PLACEHOLDERS:
         return MessageTypes.NON_SYSTEM
     if any(phrase in text for phrase in _DISCORD):
         return MessageTypes.DISCORD
@@ -209,24 +209,6 @@ def sniff_image(content: bytes) -> str:
     if content.startswith(b"RIFF") and b"WEBP" in content[:16]:
         return "image/webp"
     return "image/png"
-
-
-def multipart_body(filename: str, content: bytes, content_type: str) -> tuple[bytes, str]:
-    alphabet = string.ascii_letters + string.digits
-    token = "".join(secrets.choice(alphabet) for _ in range(16))
-    boundary = f"----aiosellers{token}"
-    head = (
-        f"--{boundary}\r\n"
-        f'Content-Disposition: form-data; name="file"; filename="{filename}"\r\n'
-        f"Content-Type: {content_type}\r\n\r\n"
-    ).encode()
-    middle = (
-        f"\r\n--{boundary}\r\n"
-        'Content-Disposition: form-data; name="file_id"\r\n\r\n'
-        "0\r\n"
-        f"--{boundary}--\r\n"
-    ).encode()
-    return head + content + middle, boundary
 
 
 def exchange_rate_pattern() -> re.Pattern[str]:

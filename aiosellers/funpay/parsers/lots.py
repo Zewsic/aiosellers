@@ -18,6 +18,19 @@ def _query_id(href: str) -> str | None:
     return values[0] if values else None
 
 
+def _offer_id(row) -> str:
+    data = row.get("data-offer")
+    if data is not None and str(data).strip().isdigit():
+        return str(data).strip()
+    href = row.get("href") or ""
+    query = urlsplit(href).query
+    if not query and "?" in href:
+        query = href.split("?", 1)[1]
+    offer = parse_qs(query).get("offer")
+    if offer:
+        return offer[0]
+    return _query_id(href) or ""
+
 def _server(row) -> str | None:
     node = row.select_one("div.tc-server.hidden-xxs") or row.select_one("div.tc-server.hidden-xs")
     if node is None:
@@ -102,7 +115,7 @@ def parse_my_lots(html: str, *, subcategory_id: int) -> list[MyLotShortcut]:
             price = parse_price(price_node.get_text(" ", strip=True))[0]
         lots.append(
             MyLotShortcut(
-                id=_query_id(row.get("href") or "") or "",
+                id=_offer_id(row),
                 description=desc.get_text(" ", strip=True) if desc is not None else None,
                 price=price,
                 active="warning" not in classes and "deleted" not in classes,

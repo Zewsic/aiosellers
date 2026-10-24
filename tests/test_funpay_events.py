@@ -2,7 +2,7 @@ import unittest
 
 from aiosellers.funpay import FunPay
 from aiosellers.funpay.client_config import FunPayClientConfig
-from aiosellers.funpay.entities.chat import Message
+from aiosellers.funpay.entities.chat import Chat, Message
 from aiosellers.funpay.events import NewMessageEvent, NewReviewEvent
 from aiosellers.funpay.listener import EventListener
 from aiosellers.funpay.parsers.orders import parse_order_list
@@ -237,3 +237,51 @@ class FunPayEventTests(unittest.IsolatedAsyncioTestCase):
             )
         )
         self.assertEqual(stars, ["any"])
+
+    async def test_backtest_replays_messages_in_id_order(self) -> None:
+        client, _listener_obj, _raw = _listener()
+        chat_a = Chat(id=1, name="Ann")
+        chat_b = Chat(id=2, name="Bob")
+        feedback = "Покупатель Bob написал отзыв к заказу #AB12CD34."
+
+        async def list_chats(*, fetch: bool = True):
+            del fetch
+            return [chat_b, chat_a]
+
+        async def list_messages(chat_id, *, last_message_id=None, limit=100):
+            del last_message_id, limit
+            if chat_id == 1:
+                return [
+                    Message(id=5, text=feedback, chat_id=1, type=MessageTypes.NEW_FEEDBACK),
+                    Message(id=2, text="first", chat_id=1),
+                ]
+            return [Message(id=3, text="second", chat_id=2)]
+
+        client.chats.list = list_chats  # type: ignore[method-assign]
+
+        async def get_chat(chat_id: int, *, force_refresh: bool = False) -> Chat:
+            del force_refresh
+            return chat_a if chat_id == 1 else chat_b
+
+        client.chats.get = get_chat  # type: ignore[method-assign]
+        client.chats.messages.list = list_messages  # type: ignore[method-assign]
+        seen: list[tuple[EventTypes, int]] = []
+        async for event in client.replay_messages(limit=2):
+            seen.append((event.type, event.message.id))
+        self.assertEqual(
+            seen,
+            [
+                (EventTypes.NEW_MESSAGE, 3),
+                (EventTypes.NEW_MESSAGE, 5),
+                (EventTypes.NEW_REVIEW, 5),
+            ],
+        )
+
+        dispatched: list[int] = []
+
+        @client.on_message()
+        async def handle(event: NewMessageEvent) -> None:
+            dispatched.append(event.message.id)
+
+        await client.backtest_messages(chat_id=1, reviews=False)
+        self.assertEqual(dispatched, [2, 5])

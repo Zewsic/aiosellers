@@ -11,7 +11,6 @@ from urllib.parse import urlencode
 from bs4 import BeautifulSoup
 
 from ..core.config import FunPayConfig
-from ..core.utils import multipart_body
 from ..exceptions import RateLimitedError, RequestFailedError, UnauthorizedError
 from ..parsers.home import parse_home
 
@@ -126,16 +125,11 @@ class FunPayTransport:
             )
 
     async def upload(self, path: str, filename: str, content: bytes, content_type: str) -> Any:
-        body, boundary = multipart_body(filename, content, content_type)
-        return await self._upload(path, body, boundary)
-
-    async def _upload(self, path: str, body: bytes, boundary: str) -> Any:
         async with self._lock:
             return await self._exchange(
                 "POST",
                 path,
-                content=body,
-                headers={"content-type": f"multipart/form-data; boundary={boundary}"},
+                files={"file": (filename, content, content_type)},
                 raise_not_200=False,
             )
 
@@ -162,23 +156,23 @@ class FunPayTransport:
             relative = f"{effective}/{relative}" if relative else f"{effective}/"
         return base + relative
 
-    def _form(self, data: dict) -> str:
+    def _fields(self, data: dict) -> dict[str, str | list[str]]:
         payload = dict(data)
         if "csrf_token" not in payload and self.csrf_token:
             payload["csrf_token"] = self.csrf_token
-        pairs: list[tuple[str, str]] = []
+        fields: dict[str, str | list[str]] = {}
         for key, value in payload.items():
             if isinstance(value, bool):
                 if value:
-                    pairs.append((str(key), "1"))
+                    fields[str(key)] = "1"
                 continue
             if value is None:
                 continue
             if isinstance(value, list):
-                pairs.extend((str(key), str(item)) for item in value)
+                fields[str(key)] = [str(item) for item in value]
                 continue
-            pairs.append((str(key), str(value)))
-        return urlencode(pairs)
+            fields[str(key)] = str(value)
+        return fields
 
     async def _exchange(
         self,
@@ -187,10 +181,10 @@ class FunPayTransport:
         *,
         data: dict | None = None,
         json_body: Any = None,
+        files: dict | None = None,
         headers: dict[str, str] | None = None,
         locale: str | None = None,
         raise_not_200: bool = True,
-        content: bytes | None = None,
     ) -> Any:
         verb = method.upper()
         url = self._url(path, locale)
@@ -205,19 +199,19 @@ class FunPayTransport:
             request_headers["x-requested-with"] = "XMLHttpRequest"
         if headers:
             request_headers.update(headers)
-        body: bytes | None = content
-        if body is None and json_body is not None:
-            request_headers["content-type"] = "application/json"
-            body = json.dumps(json_body).encode()
-        elif body is None and data is not None:
-            lowered = {key.lower() for key in request_headers}
-            if "content-type" not in lowered:
-                request_headers["content-type"] = "application/x-www-form-urlencoded; charset=UTF-8"
-            body = self._form(data).encode()
+        post: dict[str, Any] = {}
+        if files is not None:
+            request_headers.pop("content-type", None)
+            request_headers.pop("Content-Type", None)
+            post["files"] = files
+        elif json_body is not None:
+            post["json"] = json_body
+        elif data is not None:
+            post["data"] = self._fields(data)
         if verb == "GET":
             response = await self._client.get(url, headers=request_headers)
         else:
-            response = await self._client.post(url, headers=request_headers, content=body)
+            response = await self._client.post(url, headers=request_headers, **post)
         self._absorb(response)
         self._raise_for_status(response, raise_not_200=raise_not_200)
         return response

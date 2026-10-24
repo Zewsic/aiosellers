@@ -27,7 +27,9 @@ class RawChats(RawBase):
     async def history(self, chat_id: int | str, last_message_id: int, *, retry: bool = True):
         async def run():
             response = await self.transport.request(
-                "GET", f"chat/history?node={chat_id}&last_message={last_message_id}"
+                "GET",
+                f"chat/history?node={chat_id}&last_message={last_message_id}",
+                headers={"x-requested-with": "XMLHttpRequest"},
             )
             data = response_json(response)
             chat = data.get("chat") or {}

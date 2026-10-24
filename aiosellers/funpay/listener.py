@@ -48,6 +48,22 @@ _REVIEW_EVENTS = {
 }
 
 
+def message_events(client: FunPay, chat, message, *, reviews: bool):
+    """One new-message event, plus a review event when the text is a review notice."""
+    events = [NewMessageEvent(client=client, chat=chat, message=message)]
+    if reviews:
+        review_type = _REVIEW_EVENTS.get(message.type)
+        if review_type is not None:
+            events.append(
+                review_type(
+                    client=client,
+                    message=message,
+                    order_id=order_id_from(message.text),
+                )
+            )
+    return events
+
+
 class EventListener:
     """Poll FunPay runner objects. There is no websocket."""
 
@@ -246,17 +262,7 @@ class EventListener:
                     if snap.id <= stored:
                         continue
                     message = self.client.chats._message(snap)
-                    events.append(NewMessageEvent(client=self.client, chat=chat, message=message))
-                    if reviews:
-                        review_type = _REVIEW_EVENTS.get(message.type)
-                        if review_type is not None:
-                            events.append(
-                                review_type(
-                                    client=self.client,
-                                    message=message,
-                                    order_id=order_id_from(message.text),
-                                )
-                            )
+                    events.extend(message_events(self.client, chat, message, reviews=reviews))
             self._chats[shortcut.id] = (
                 max(newest, shortcut.node_message_id),
                 shortcut.user_message_id,

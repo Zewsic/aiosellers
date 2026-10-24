@@ -2,6 +2,7 @@ import unittest
 
 from aiosellers.funpay.core.utils import classify_message
 from aiosellers.funpay.parsers.home import parse_home
+from aiosellers.funpay.parsers.lots import parse_my_lots
 from aiosellers.funpay.parsers.orders import parse_order_list
 from aiosellers.funpay.schemas import MessageTypes, OrderSide, OrderStatuses, SubCategoryTypes
 
@@ -52,6 +53,10 @@ class FunPayParserTests(unittest.IsolatedAsyncioTestCase):
         self.assertIs(classify_message("hello"), MessageTypes.NON_SYSTEM)
         self.assertIs(classify_message(""), MessageTypes.NON_SYSTEM)
         self.assertIs(classify_message(None), MessageTypes.NON_SYSTEM)
+        self.assertIs(
+            classify_message("Покупатель\nBob\nнаписал отзыв к\nзаказу #AB12CD34\n."),
+            MessageTypes.NEW_FEEDBACK,
+        )
         self.assertIs(classify_message("Изображение"), MessageTypes.NON_SYSTEM)
 
     def test_home_ignores_the_first_promo_list(self) -> None:
@@ -75,3 +80,17 @@ class FunPayParserTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(orders[0].buyer_username, "Bob")
         self.assertEqual(orders[0].buyer_id, 9)
         self.assertEqual(orders[0].price, 100)
+
+    def test_my_lot_id_comes_from_data_offer(self) -> None:
+        html = """
+        <a class="tc-item" data-offer="80321907"
+           href="https://funpay.com/lots/offerEdit?node=1485&amp;offer=80321907">
+          <div class="tc-desc-text">3000 бриллиантов</div>
+          <div class="tc-price" data-s="3000">3000 ₽</div>
+        </a>
+        """
+        lots = parse_my_lots(html, subcategory_id=1485)
+        self.assertEqual(len(lots), 1)
+        self.assertEqual(lots[0].id, "80321907")
+        self.assertEqual(lots[0].price, 3000)
+        self.assertEqual(lots[0].description, "3000 бриллиантов")
