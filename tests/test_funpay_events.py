@@ -123,12 +123,12 @@ class FunPayEventTests(unittest.IsolatedAsyncioTestCase):
                 EventTypes.NEW_MESSAGE,
             ],
         )
-        self.assertEqual(raw.history_calls, [(3, 11)])
+        self.assertEqual(raw.history_calls, [(3, 12)])
 
         raw.history_calls.clear()
         raw.payloads.append(_runner(BOOKMARK.format(node=12, text="Изображение")))
         await listener.tick(orders=False, purchases=False)
-        self.assertEqual(raw.history_calls, [(3, 12)])
+        self.assertEqual(raw.history_calls, [(3, 13)])
 
     async def test_order_diff_and_oversized_page(self) -> None:
         _client, listener, raw = _listener()

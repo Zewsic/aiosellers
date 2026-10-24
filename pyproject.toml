@@ -1,6 +1,6 @@
 [project]
 name = "aiosellers"
-version = "0.1.7"
+version = "0.1.8"
 description = "All In One Sellers API - Universal API for various digital trading platforms (such as PlayerOK or FunPay). Provides developers with a convenient way to create bots on any platform."
 readme = "README.md"
 requires-python = ">=3.12"

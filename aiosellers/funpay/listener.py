@@ -249,8 +249,9 @@ class EventListener:
             chat = self.client.chats._from_shortcut(shortcut)
             events.append(LastChatMessageChangedEvent(client=self.client, chat=chat))
             try:
+                # FunPay returns messages strictly older than last_message.
                 history = await raw.chats.history(
-                    shortcut.id, shortcut.node_message_id, retry=False
+                    shortcut.id, shortcut.node_message_id + 1, retry=False
                 )
             except Exception:
                 logger.exception("FunPay history failed for chat %s", shortcut.id)
