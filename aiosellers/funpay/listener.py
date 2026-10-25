@@ -78,7 +78,6 @@ class EventListener:
         self._chat_ready = False
         self._orders_ready = False
         self._purchases_ready = False
-        self._refresh_failures = 0
         client._listener = self
 
     def remember_sent(self, chat_id: int | str, message_id: int) -> None:
@@ -135,23 +134,22 @@ class EventListener:
             raise RuntimeError("Client is not started. Call start() or start_polling() first.")
         try:
             await transport.refresh_profile()
+        except UnauthorizedError:
+            raise
         except RequestFailedError as exc:
-            self._refresh_failures += 1
-            logger.exception("FunPay session refresh failed")
-            if self._refresh_failures >= 3:
-                if isinstance(exc, UnauthorizedError):
-                    raise
-                raise RequestFailedError(
-                    str(exc), status_code=exc.status_code, body=exc.body
-                ) from exc
+            logger.warning("FunPay session refresh failed: %s", exc)
             return []
-        self._refresh_failures = 0
         try:
             return await self._collect(
                 messages=messages, orders=orders, purchases=purchases, reviews=reviews
             )
         except RateLimitedError:
             logger.warning("FunPay rate limited")
+            return []
+        except UnauthorizedError:
+            raise
+        except RequestFailedError as exc:
+            logger.warning("FunPay poll failed: %s", exc)
             return []
 
     async def _collect(self, *, messages: bool, orders: bool, purchases: bool, reviews: bool):

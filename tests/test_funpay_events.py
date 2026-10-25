@@ -38,7 +38,11 @@ class _Raw:
         self.sales_pages: list[tuple] = []
 
     async def runner_poll(self, objects, request=None):
-        del request
+        del objects, request
+        error = getattr(self, "poll_error", None)
+        if error is not None:
+            self.poll_error = None
+            raise error
         return self.payloads.pop(0)
 
     async def history(self, chat_id, last_message_id, retry=True):
@@ -285,3 +289,58 @@ class FunPayEventTests(unittest.IsolatedAsyncioTestCase):
 
         await client.backtest_messages(chat_id=1, reviews=False)
         self.assertEqual(dispatched, [2, 5])
+
+    async def test_failed_poll_does_not_drop_the_listener(self) -> None:
+        from aiosellers.funpay.exceptions import RequestFailedError, UnauthorizedError
+
+        client, listener, raw = _listener()
+        raw.payloads.append(_runner(BOOKMARK.format(node=10, text="hi")))
+        await listener.tick(orders=False, purchases=False)
+        raw.poll_error = RequestFailedError("HTTP 0", status_code=0)
+        self.assertEqual(await listener.tick(orders=False, purchases=False), [])
+        raw.history_result = [
+            MessageSnapshot(
+                id=11,
+                text="hey",
+                chat_id=3,
+                chat_name="Ann",
+                author="Ann",
+                author_id=9,
+                interlocutor_id=9,
+                image_link=None,
+                image_name=None,
+                type=MessageTypes.NON_SYSTEM,
+                by_bot=False,
+                badge=None,
+                is_support=False,
+                is_moderation=False,
+                is_arbitration=False,
+                is_auto_reply=False,
+                html="",
+            )
+        ]
+        raw.payloads.append(_runner(BOOKMARK.format(node=11, text="hey")))
+        again = await listener.tick(orders=False, purchases=False)
+        self.assertIn(EventTypes.NEW_MESSAGE, [event.type for event in again])
+
+        class _Down:
+            rate_limited_until = 0
+
+            async def refresh_profile(self, force: bool = False) -> None:
+                del force
+                raise RequestFailedError("HTTP 0", status_code=0)
+
+        client._transport = _Down()  # type: ignore[assignment]
+        for _ in range(3):
+            self.assertEqual(await listener.tick(orders=False, purchases=False), [])
+
+        class _Denied:
+            rate_limited_until = 0
+
+            async def refresh_profile(self, force: bool = False) -> None:
+                del force
+                raise UnauthorizedError("unauthorized")
+
+        client._transport = _Denied()  # type: ignore[assignment]
+        with self.assertRaises(UnauthorizedError):
+            await listener.tick(orders=False, purchases=False)
